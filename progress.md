@@ -1,0 +1,1 @@
+- today i set up the parser function so that it takes in the JSON file and extracts the home and away teams' IDs, and gets all the events that happened. it then calculates the state of the event (taking into account pitch zone and possession) and puts it into the DataFrame of all events. It also finds the time differential between all events and the next one.
