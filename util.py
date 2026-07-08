@@ -2,6 +2,8 @@ import pandas as pd
 import json
 import os
 import glob
+import numpy as np
+from helpers import country_to_country_code
 
 
 def parse_match_to_dataframe(filepath):
@@ -79,9 +81,18 @@ def parse_match_to_dataframe(filepath):
     # this produces a series of every event telling us whether it was an event done by the home team or not
     is_home = df["teamId"] == home_id
 
+    if "isOwnGoal" in df.columns:
+        is_own_goal = df["isOwnGoal"] == True
+    else:
+        is_own_goal = pd.Series(False, index=df.index)
+
     # if the event was a goal and the event was done by the home team, it's a home goal
-    df.loc[is_goal & is_home, "finishing_state"] = "Goal_H"
-    df.loc[is_goal & ~is_home, "finishing_state"] = "Goal_A"
+    df.loc[is_goal & is_home & ~is_own_goal, "finishing_state"] = "Goal_H"
+    df.loc[is_goal & ~is_home & ~is_own_goal, "finishing_state"] = "Goal_A"
+
+    # own goals logic
+    df.loc[is_goal & is_home & is_own_goal, "finishing_state"] = "Goal_A"
+    df.loc[is_goal & ~is_home & is_own_goal, "finishing_state"] = "Goal_H"
 
     # find time spent in the starting state (the difference between this event and the next)
     df["time_spent_seconds"] = df.index.to_series().diff().shift(-1)
@@ -284,8 +295,85 @@ def scrape_elo_ratings():
     return elo_df
 
 
-def incorporate_elo_diff(elo_diff, beta):
-    pass
+def apply_elo_hazards(
+    elo_home: float,
+    elo_away: float,
+    team_q_matrix: pd.DataFrame,
+    beta: float = 0.002,
+):
+    df = team_q_matrix.copy()
+
+    # extract starting attributes
+    df["start_zone"] = df["starting_state"].str[2]
+    df["start_poss"] = df["starting_state"].str[-1]
+
+    # extract finishing attributes
+    df["finish_poss"] = df["finishing_state"].str[-1]
+
+    # create a Boolean series of 'is this event a goal?'
+    is_goal = df["finishing_state"].str.startswith("Goal")
+
+    # df["finish_zone"] = df.loc[~is_goal, "finishing_state"].str[2]
+
+    df["finish_zone"] = df["finishing_state"].str[2]
+
+    active_diff = np.where(
+        df["start_poss"] == "H", elo_home - elo_away, elo_away - elo_home
+    )
+
+    # define tactically positive actions
+    is_progression = (
+        (~is_goal)  # not a goal
+        & (df["start_poss"] == df["finish_poss"])  # possession was kept
+        & (df["finish_zone"] > df["start_zone"])  # ball was advanced forward
+    )
+
+    is_scoring = (is_goal) & (
+        df["start_poss"] == df["finish_poss"]
+    )  # it was a goal, and the team that started with possession is the one that scored
+
+    is_positive_action = is_progression | is_scoring
+
+    modifier = np.where(
+        is_positive_action,
+        active_diff,
+        -active_diff,
+    )
+
+    df["match_lambda_ij"] = df["updated_lamba_ij"] * np.exp(beta * modifier)
+    final_q_matrix = df[["starting_state", "finishing_state", "match_lambda_ij"]].copy()
+
+    final_q_grid = final_q_matrix.pivot(
+        index="starting_state", columns="finishing_state", values="match_lambda_ij"
+    ).fillna(0)
+    return final_q_matrix, final_q_grid
+
+
+def create_final_matrix(
+    home_team: str,
+    away_team: str,
+    elo_home: float,
+    elo_away: float,
+    global_q: pd.DataFrame,
+    alpha: float,
+):
+    full_home_df = create_full_team_df(home_team)
+    full_away_df = create_full_team_df(away_team)
+    home_q_matrix, _ = calculate_specific_q(global_q, alpha, full_home_df)
+    away_q_matrix, _ = calculate_specific_q(global_q, alpha, full_away_df)
+
+    home_attacking_rows = home_q_matrix[
+        home_q_matrix["starting_state"].str.endswith("H")
+    ]
+    away_attacking_rows = away_q_matrix[
+        away_q_matrix["starting_state"].str.endswith("A")
+    ]
+
+    combined_match_matrix = pd.concat([home_attacking_rows, away_attacking_rows])
+
+    _, final_q_grid = apply_elo_hazards(elo_home, elo_away, combined_match_matrix)
+
+    return final_q_grid
 
 
 if __name__ == "__main__":
