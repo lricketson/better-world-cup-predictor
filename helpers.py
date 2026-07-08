@@ -265,3 +265,15 @@ def align_team_perspective(team_df: pd.DataFrame, team_id: int, sim_role: str):
     df["finishing_state"] = new_finish
 
     return df
+
+
+def standardise_possessions(df):
+    """Forces all 'Home' and 'Away' strings to 'H' and 'A' across the dataframe."""
+    df_clean = df.copy()
+    df_clean["starting_state"] = (
+        df_clean["starting_state"].str.replace("Home", "H").str.replace("Away", "A")
+    )
+    df_clean["finishing_state"] = (
+        df_clean["finishing_state"].str.replace("Home", "H").str.replace("Away", "A")
+    )
+    return df_clean

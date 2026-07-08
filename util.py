@@ -3,7 +3,12 @@ import json
 import os
 import glob
 import numpy as np
-from helpers import parse_match_to_dataframe, safe_parse, align_team_perspective
+from helpers import (
+    parse_match_to_dataframe,
+    safe_parse,
+    align_team_perspective,
+    standardise_possessions,
+)
 
 
 def create_master_df(folder_path="./data/world_cup_2026"):
@@ -191,7 +196,7 @@ def apply_elo_hazards(
         -active_diff,
     )
 
-    df["match_lambda_ij"] = df["updated_lamba_ij"] * np.exp(beta * modifier)
+    df["match_lambda_ij"] = df["updated_lambda_ij"] * np.exp(beta * modifier)
     final_q_matrix = df[["starting_state", "finishing_state", "match_lambda_ij"]].copy()
 
     final_q_grid = final_q_matrix.pivot(
@@ -210,9 +215,10 @@ def create_final_matrix(
     global_q: pd.DataFrame,
     alpha: float,
 ):
+
     # 1. Fetch raw historical data (Raw Events)
-    full_home_df = create_full_team_df(home_team)
-    full_away_df = create_full_team_df(away_team)
+    full_home_df = standardise_possessions(create_full_team_df(home_team))
+    full_away_df = standardise_possessions(create_full_team_df(away_team))
 
     # 2. Align the perspectives (Raw Events)
     aligned_home_df = align_team_perspective(full_home_df, home_id, sim_role="H")
@@ -236,9 +242,13 @@ def create_final_matrix(
     ]
 
     combined_match_matrix = pd.concat([home_attacking_rows, away_attacking_rows])
+    print("combined_match_matrix.head()", combined_match_matrix.head())
 
     # 6. Apply Elo Hazards
-    _, final_q_grid = apply_elo_hazards(combined_match_matrix, elo_home, elo_away)
+    final_q_matrix, final_q_grid = apply_elo_hazards(
+        combined_match_matrix, elo_home, elo_away
+    )
+    print("final_q_matrix.head()", final_q_matrix.head())
 
     return final_q_grid
 
