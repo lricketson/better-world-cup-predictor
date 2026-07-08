@@ -3,129 +3,7 @@ import json
 import os
 import glob
 import numpy as np
-from helpers import country_to_country_code
-
-
-def parse_match_to_dataframe(filepath):
-
-    # open file and extract json
-    with open(filepath, mode="r", encoding="utf-8") as f:
-        match_data = json.load(f)
-
-    # get ids of home and away teams
-    home_id = match_data["home"]["teamId"]
-    away_id = match_data["away"]["teamId"]
-
-    # isolate the events array and load only that into Pandas
-    events_list = match_data["events"]
-    df = pd.DataFrame(events_list)
-
-    # only take the rows where the ball was actually touched
-    # this prevents taking events like red cards (which we'll come back to later, but this is a ledger of ball movement)
-    if "isTouch" in df.columns:
-        df = df[df["isTouch"] == True].copy()
-
-    df["match_seconds"] = df["expandedMinute"] * 60 + df["second"]
-    df = df.set_index("match_seconds")
-    df = df.sort_index()
-
-    def calculate_state(row, is_start_coordinate=True):
-        possession = "Home" if row["teamId"] == home_id else "Away"
-
-        # if we're looking at event end coordinates:
-        if not is_start_coordinate:
-            # Opta stores event outcomeTypes as a dict: {'value': 1, 'displayName': 'Successful'}
-            # Value == 0 means unsuccessful. So if the event was unsuccessful, it means they lost
-            # possession, so we give possession to the other team.
-            outcome_val = row.get("outcomeType", {}).get("value")  #
-            if outcome_val == 0:
-                possession = "Away" if possession == "Home" else "Home"
-
-        # determine which coordinate to use for the event
-        x_val = row["x"] if is_start_coordinate else row.get("endX", row["x"])
-
-        # cap possible edge cases
-        x_val = max(0, min(x_val, 100))
-
-        zone = ""
-        # to capture the penalty boxes
-        if x_val < 17:
-            zone = "0"
-        elif x_val < 39:
-            zone = "1"
-        elif x_val < 61:
-            zone = "2"
-        elif x_val < 83:
-            zone = "3"
-        else:
-            zone = "4"
-
-        state = f"Z:{zone}_P:{possession}"
-        return state
-
-    # get the events' starting states
-    df["starting_state"] = df.apply(
-        lambda row: calculate_state(row, is_start_coordinate=True), axis=1
-    )
-    # and the finishing states
-    df["finishing_state"] = df.apply(
-        lambda row: calculate_state(row, is_start_coordinate=False), axis=1
-    )
-
-    # fill NaN values
-    if "isGoal" in df.columns:
-        is_goal = df["isGoal"] == True
-    else:
-        is_goal = pd.Series(False, index=df.index)
-
-    # this produces a series of every event telling us whether it was an event done by the home team or not
-    is_home = df["teamId"] == home_id
-
-    if "isOwnGoal" in df.columns:
-        is_own_goal = df["isOwnGoal"] == True
-    else:
-        is_own_goal = pd.Series(False, index=df.index)
-
-    # if the event was a goal and the event was done by the home team, it's a home goal
-    df.loc[is_goal & is_home & ~is_own_goal, "finishing_state"] = "Goal_H"
-    df.loc[is_goal & ~is_home & ~is_own_goal, "finishing_state"] = "Goal_A"
-
-    # own goals logic
-    df.loc[is_goal & is_home & is_own_goal, "finishing_state"] = "Goal_A"
-    df.loc[is_goal & ~is_home & is_own_goal, "finishing_state"] = "Goal_H"
-
-    # find time spent in the starting state (the difference between this event and the next)
-    df["time_spent_seconds"] = df.index.to_series().diff().shift(-1)
-
-    # fill the very last event of the match (which has no next event) with the standard 2 seconds
-    df["time_spent_seconds"] = df["time_spent_seconds"].fillna(2.0)
-
-    # cap stoppages at 15 seconds to preserve tactical reality
-    df.loc[df["time_spent_seconds"] > 15.0, "time_spent_seconds"] = 3.0
-
-    cols_to_keep = [
-        "eventId",
-        "teamId",
-        "type",
-        "outcomeType",
-        "starting_state",
-        "finishing_state",
-        "time_spent_seconds",
-    ]
-
-    existing_cols = [c for c in cols_to_keep if c in df.columns]
-    df = df[existing_cols].copy()
-
-    # change to snake_case from JS naming convention
-    df = df.rename(
-        columns={
-            "eventId": "event_id",
-            "teamId": "team_id",
-            "outcomeType": "outcome_type",
-        }
-    )
-
-    return df
+from helpers import parse_match_to_dataframe, safe_parse, align_team_perspective
 
 
 def create_master_df(folder_path="./data/world_cup_2026"):
@@ -203,15 +81,6 @@ def calculate_global_q(master_df: pd.DataFrame):
     return q_matrix, q_grid
 
 
-def safe_parse(filepath):
-    """Wrapper to catch corrupted files without crashing the whole script."""
-    try:
-        return parse_match_to_dataframe(filepath)
-    except Exception as e:
-        print(f"  [-] Failed to parse {os.path.basename(filepath)}: {str(e)}")
-        return pd.DataFrame()  # Return empty df on failure
-
-
 def create_full_team_df(team_name, folder_path="./data/world_cup_2026"):
     # switch from spaces to underscores for file names
     search_name = team_name.replace(" ", "_")
@@ -277,28 +146,10 @@ def calculate_specific_q(
     return updated_q_matrix, updated_q_grid
 
 
-def scrape_elo_ratings():
-    url = "https://www.eloratings.net/World.tsv"
-    elo_df = pd.read_csv(url, sep="\t", header=None)
-    elo_df.columns = [
-        "rank",
-        "country_code",
-        "rating",
-        "matches_played",
-        "wins",
-        "draws",
-        "losses",
-        "goals_for",
-        "goals_against",
-        "points_change_1yr",
-    ]
-    return elo_df
-
-
 def apply_elo_hazards(
+    team_q_matrix: pd.DataFrame,
     elo_home: float,
     elo_away: float,
-    team_q_matrix: pd.DataFrame,
     beta: float = 0.002,
 ):
     df = team_q_matrix.copy()
@@ -351,17 +202,32 @@ def apply_elo_hazards(
 
 def create_final_matrix(
     home_team: str,
+    home_id: int,
     away_team: str,
+    away_id: int,
     elo_home: float,
     elo_away: float,
     global_q: pd.DataFrame,
     alpha: float,
 ):
+    # 1. Fetch raw historical data (Raw Events)
     full_home_df = create_full_team_df(home_team)
     full_away_df = create_full_team_df(away_team)
-    home_q_matrix, _ = calculate_specific_q(global_q, alpha, full_home_df)
-    away_q_matrix, _ = calculate_specific_q(global_q, alpha, full_away_df)
 
+    # 2. Align the perspectives (Raw Events)
+    aligned_home_df = align_team_perspective(full_home_df, home_id, sim_role="H")
+    aligned_away_df = align_team_perspective(full_away_df, away_id, sim_role="A")
+
+    # 3. [THE FIX]: Aggregate the raw events into Transition Counts (n_ij) and Times (T_i)
+    # We can reuse our global function to do this calculation for specific teams!
+    home_counts, _ = calculate_global_q(aligned_home_df)
+    away_counts, _ = calculate_global_q(aligned_away_df)
+
+    # 4. Pass the AGGREGATED counts into the Bayesian update
+    home_q_matrix, _ = calculate_specific_q(global_q, alpha, home_counts)
+    away_q_matrix, _ = calculate_specific_q(global_q, alpha, away_counts)
+
+    # 5. The Slicing
     home_attacking_rows = home_q_matrix[
         home_q_matrix["starting_state"].str.endswith("H")
     ]
@@ -371,7 +237,8 @@ def create_final_matrix(
 
     combined_match_matrix = pd.concat([home_attacking_rows, away_attacking_rows])
 
-    _, final_q_grid = apply_elo_hazards(elo_home, elo_away, combined_match_matrix)
+    # 6. Apply Elo Hazards
+    _, final_q_grid = apply_elo_hazards(combined_match_matrix, elo_home, elo_away)
 
     return final_q_grid
 
