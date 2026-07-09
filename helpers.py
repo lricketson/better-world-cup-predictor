@@ -277,3 +277,20 @@ def standardise_possessions(df):
         df_clean["finishing_state"].str.replace("Home", "H").str.replace("Away", "A")
     )
     return df_clean
+
+
+def probability_to_odds(probability: float, vig_margin: float = 0.0):
+    """
+    Converts a probability to its corresponding odds metric, optionally baking in
+    a bookmaker's vig.
+    """
+    implied_probability = probability * (1 + vig_margin)
+    odds = 1 / implied_probability
+    return round(odds, 3)
+
+
+def match_outcome_probs_to_odds(prob_home: float, prob_away: float, prob_draw: float):
+    odds_home = probability_to_odds(prob_home)
+    odds_away = probability_to_odds(prob_away)
+    odds_draw = probability_to_odds(prob_draw)
+    return odds_home, odds_away, odds_draw
