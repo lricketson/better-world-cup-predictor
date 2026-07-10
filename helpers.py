@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import json
 import os
+from constants import COUNTRY_TO_CODE_MAP
+import pycountry
 
 
 def parse_match_to_dataframe(filepath):
@@ -145,92 +147,49 @@ def safe_scrape_elo():
     return df
 
 
-def country_to_country_code(country: str) -> str:
+def country_to_country_code(team_name: str) -> str:
     """
-    Returns the standard 3-letter FIFA country code for the 48 teams
-    participating in the 2026 FIFA World Cup.
+    Maps a full team name to its 2-letter Eloratings code.
+    Eloratings uses ISO alpha-2 codes, with exceptions for UK nations
+    and a few specific football naming conventions.
     """
-    mapping = {
-        # Group A
-        "mexico": "MEX",
-        "south africa": "RSA",
-        "south korea": "KOR",
-        "republic of korea": "KOR",
-        "korea republic": "KOR",
-        "czech republic": "CZE",
-        "czechia": "CZE",
-        # Group B
-        "canada": "CAN",
-        "bosnia and herzegovina": "BIH",
-        "bosnia": "BIH",
-        "qatar": "QAT",
-        "switzerland": "SUI",
-        # Group C
-        "brazil": "BR",
-        "morocco": "MAR",
-        "haiti": "HAI",
-        "scotland": "SCO",
-        # Group D
-        "united states": "USA",
-        "usa": "USA",
-        "united states of america": "USA",
-        "paraguay": "PAR",
-        "australia": "AUS",
-        "turkey": "TUR",
-        "türkiye": "TUR",
-        # Group E
-        "germany": "GER",
-        "curaçao": "CUW",
-        "curacao": "CUW",
-        "ivory coast": "CIV",
-        "côte d'ivoire": "CIV",
-        "cote d'ivoire": "CIV",
-        "ecuador": "ECU",
-        # Group F
-        "netherlands": "NED",
-        "japan": "JPN",
-        "sweden": "SWE",
-        "tunisia": "TUN",
-        # Group G
-        "belgium": "BEL",
-        "egypt": "EGY",
-        "iran": "IRN",
-        "ir iran": "IRN",
-        "new zealand": "NZL",
-        # Group H
-        "spain": "ESP",
-        "cape verde": "CPV",
-        "cabo verde": "CPV",
-        "saudi arabia": "KSA",
-        "uruguay": "URU",
-        # Group I
-        "france": "FRA",
-        "senegal": "SEN",
-        "iraq": "IRQ",
-        "norway": "NO",
-        # Group J
-        "argentina": "ARG",
-        "algeria": "ALG",
-        "austria": "AUT",
-        "jordan": "JOR",
-        # Group K
-        "portugal": "POR",
-        "dr congo": "COD",
-        "congo dr": "COD",
-        "democratic republic of congo": "COD",
-        "democratic republic of the congo": "COD",
-        "uzbekistan": "UZB",
-        "colombia": "COL",
-        # Group L
-        "england": "ENG",
-        "croatia": "CRO",
-        "ghana": "GHA",
-        "panama": "PAN",
+    # 1. The Football-Specific Overrides
+    elo_quirks = {
+        "England": "EN",
+        "Scotland": "SC",
+        "Wales": "WA",
+        "Northern Ireland": "NI",
+        "USA": "US",
+        "South Korea": "KR",
+        "North Korea": "KP",
+        "Turkiye": "TR",  # Opta uses Turkiye, ISO uses Turkey
+        "Cabo Verde": "CV",
+        "Ivory Coast": "CI",  # ISO uses Côte d'Ivoire
+        "DR Congo": "CD",
+        "Iran": "IR",
+        "Syria": "SY",
+        "Russia": "RU",
+        "Venezuela": "VE",
+        "Bolivia": "BO",
+        "Vietnam": "VN",
+        "Czechia": "CZ",
+        "Bosnia and Herzegovina": "BA",
     }
 
-    # Clean up the input string and look up the dictionary
-    formatted_country = country.strip().lower()
-    return mapping.get(formatted_country, "Code not found")
+    if team_name in elo_quirks:
+        return elo_quirks[team_name]
+
+    # 2. The Automated ISO Lookup
+    try:
+        # Fuzzy match standard countries (e.g., "Brazil" -> "BR", "France" -> "FR")
+        country = pycountry.countries.search_fuzzy(team_name)[0]
+        return country.alpha_2
+
+    except LookupError:
+        print(
+            f"[!] Warning: Could not find Elo code for '{team_name}'. You may need to add it to the elo_quirks dict."
+        )
+        return None
 
 
 def align_team_perspective(team_df: pd.DataFrame, team_id: int, sim_role: str):
@@ -294,3 +253,27 @@ def match_outcome_probs_to_odds(prob_home: float, prob_away: float, prob_draw: f
     odds_away = probability_to_odds(prob_away)
     odds_draw = probability_to_odds(prob_draw)
     return odds_home, odds_away, odds_draw
+
+
+def calculate_market_rmse(model_probs: list, bookie_odds: list):
+    """
+    Calculates the RMSE betweeen model probabilities and de-vigged bookie odds.
+    model_probs: [prob_h, prob_d, prob_a] (e.g. [0.4, 0.25, 0.35])
+    bookie_odds: [odds_h, odds_d, odds_a] (e.g. [2.50, 3.20, 2.70])
+    """
+    # de-vig the bookie odds to find true market probability
+    implied_probs = [1 / o for o in bookie_odds]
+    market_margin = sum(implied_probs)
+    # this assumes the vig was distributed uniformly, when in reality it often isn't.
+    # the vig's distribution is often skewed towards underdogs since bettors love to bet on underdogs
+    # hence this is a temporary simplification but it is an opportunity for improvement
+    true_market_probs = [ip / market_margin for ip in implied_probs]
+
+    errors = [
+        (model_probs[0] - true_market_probs[0]) ** 2,
+        (model_probs[1] - true_market_probs[1]) ** 2,
+        (model_probs[2] - true_market_probs[2]) ** 2,
+    ]
+
+    rmse = np.sqrt(sum(errors) / 3)
+    return rmse

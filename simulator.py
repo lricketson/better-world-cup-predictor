@@ -38,7 +38,7 @@ def run_pytorch_monte_carlo(
 
     for i, state in enumerate(states):
         if "Goal" in state:
-            exit_rates[state] = 1.0
+            exit_rates[i] = 1.0
             transition_probs[i, i] = 1.0
             continue
         row = q_grid.loc[state].values
@@ -130,12 +130,12 @@ def run_pytorch_monte_carlo(
     a_goals = away_goals.cpu().numpy()
 
     home_wins = np.sum(h_goals > a_goals)
-    away_wins = np.sum(a_goals > h_goals)
     draws = np.sum(h_goals == a_goals)
+    away_wins = np.sum(a_goals > h_goals)
 
     prob_h = home_wins / num_simulations
-    prob_a = away_wins / num_simulations
     prob_d = draws / num_simulations
+    prob_a = away_wins / num_simulations
 
     sim_xg_home = np.mean(h_goals)
     sim_xg_away = np.mean(a_goals)

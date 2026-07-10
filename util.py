@@ -155,7 +155,7 @@ def apply_elo_hazards(
     team_q_matrix: pd.DataFrame,
     elo_home: float,
     elo_away: float,
-    beta: float = 0.002,
+    beta: float = 0.0005,
 ):
     df = team_q_matrix.copy()
 
