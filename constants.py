@@ -1,3 +1,7 @@
+ALPHA = 0.1
+
+BEST_BETA = 0.000282
+
 TEAM_ID_MAP = {
     "Algeria": 966,
     "Argentina": 346,

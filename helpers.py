@@ -147,6 +147,11 @@ def safe_scrape_elo():
     return df
 
 
+def get_elo(elo_df: pd.DataFrame, code: str):
+    elo = elo_df.loc[elo_df["country_code"] == code, "rating"].values[0]
+    return elo
+
+
 def country_to_country_code(team_name: str) -> str:
     """
     Maps a full team name to its 2-letter Eloratings code.
@@ -190,6 +195,12 @@ def country_to_country_code(team_name: str) -> str:
             f"[!] Warning: Could not find Elo code for '{team_name}'. You may need to add it to the elo_quirks dict."
         )
         return None
+
+
+def country_to_elo(elo_df: pd.DataFrame, country: str):
+    code = country_to_country_code(country)
+    elo = get_elo(elo_df, code)
+    return elo
 
 
 def align_team_perspective(team_df: pd.DataFrame, team_id: int, sim_role: str):

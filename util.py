@@ -120,7 +120,6 @@ def calculate_specific_q(
     global_q: pd.DataFrame, alpha: float, team_data_df: pd.DataFrame
 ):
     team_data_clean = team_data_df.rename(columns={"n_ij": "team_n", "T_i": "team_T"})
-
     merged = pd.merge(
         left=global_q,
         right=team_data_clean[
@@ -214,6 +213,7 @@ def create_final_matrix(
     elo_away: float,
     global_q: pd.DataFrame,
     alpha: float,
+    beta: float,
 ):
 
     # 1. Fetch raw historical data (Raw Events)
@@ -242,13 +242,11 @@ def create_final_matrix(
     ]
 
     combined_match_matrix = pd.concat([home_attacking_rows, away_attacking_rows])
-    print("combined_match_matrix.head()", combined_match_matrix.head())
 
     # 6. Apply Elo Hazards
     final_q_matrix, final_q_grid = apply_elo_hazards(
-        combined_match_matrix, elo_home, elo_away
+        combined_match_matrix, elo_home, elo_away, beta
     )
-    print("final_q_matrix.head()", final_q_matrix.head())
 
     return final_q_grid
 
