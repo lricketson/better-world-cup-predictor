@@ -1,6 +1,6 @@
-ALPHA = 0.1
+BEST_ALPHA = 0.30
 
-BEST_BETA = 0.000282
+BEST_BETA = 0.000322
 
 TEAM_ID_MAP = {
     "Algeria": 966,
