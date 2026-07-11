@@ -10,5 +10,10 @@ i want to make calls to the oddsportal historical odds website to create a stati
 
 - i should get a bunch of past Euros and copa america games so i can increase the size of the dataset and test the model's brier score
 
-TO IMPLEMENT: strategy pattern
-TO ASK GEMINI: what is a 'coding pattern'? why is the strategy pattern called that? it seems quite vague; 'strategy'.
+- need to redo alpha tuning since i got the maximum value again.
+
+- add in neutral venue modifier
+
+- do walk forward validation (use a dynamically calculated global q matrix that only factors in matches that happened before the one we're about to make a prediction for)
+
+- implement neutral global prior (where home/away doesn't affect team strength)

@@ -206,7 +206,7 @@ def country_to_elo(elo_df: pd.DataFrame, country: str):
 def align_team_perspective(team_df: pd.DataFrame, team_id: int, sim_role: str):
     """
     Forces all of a team's historical actions to align with a certain chosen role (home or away) for
-    the upcoming simulation.
+    the upcoming simulation. sim_role should be either "H" for home or "A" for away.
     """
 
     # isolate just the actions of the team in question
@@ -259,11 +259,11 @@ def probability_to_odds(probability: float, vig_margin: float = 0.0):
     return round(odds, 3)
 
 
-def match_outcome_probs_to_odds(prob_home: float, prob_away: float, prob_draw: float):
+def match_outcome_probs_to_odds(prob_home: float, prob_draw: float, prob_away: float):
     odds_home = probability_to_odds(prob_home)
-    odds_away = probability_to_odds(prob_away)
     odds_draw = probability_to_odds(prob_draw)
-    return odds_home, odds_away, odds_draw
+    odds_away = probability_to_odds(prob_away)
+    return odds_home, odds_draw, odds_away
 
 
 def calculate_market_rmse(model_probs: list, bookie_odds: list):
