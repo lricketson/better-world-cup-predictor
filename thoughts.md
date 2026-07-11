@@ -12,10 +12,6 @@ i want to make calls to the oddsportal historical odds website to create a stati
 
 - need to redo alpha tuning since i got the maximum value again.
 
-- add in neutral venue modifier
-
 - do walk forward validation (use a dynamically calculated global q matrix that only factors in matches that happened before the one we're about to make a prediction for)
-
-- implement neutral global prior (where home/away doesn't affect team strength)
 
 - i was getting very different results when I ran Home: Norway vs Away: England compared to Home: England vs Away: Norway. This implies that the global Q matrix has home advantage baked into it somehow. This initially seems weird because 90% of the matches that went into the global Q matrix were played by 2 neutral teams (not Canada/USA/Mexico). But the reason for it is that due to administrative seeding, Pot 1 (the best pot) teams ended up in the 'Home' slot more often (2/3 times for their group games) which therefore inflated the transition rates for Home teams.
