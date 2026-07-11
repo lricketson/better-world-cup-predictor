@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import json
 import os
-from constants import COUNTRY_TO_CODE_MAP
+from constants import TEAM_ID_MAP, BEST_ALPHA, BEST_BETA
 import pycountry
 
 
@@ -288,3 +288,31 @@ def calculate_market_rmse(model_probs: list, bookie_odds: list):
 
     rmse = np.sqrt(sum(errors) / 3)
     return rmse
+
+
+def matchup_to_ctx_dict(
+    home: str,
+    away: str,
+    bookie_odds: list[float],
+    elo_df: pd.DataFrame,
+    alpha: float,
+    beta: float,
+) -> dict:
+    """
+    Accepts alpha and beta as function arguments directly from the optimization loop.
+    """
+    elo_home = country_to_elo(elo_df, home)
+    elo_away = country_to_elo(elo_df, away)
+
+    ctx = {
+        "home_team": home,
+        "home_id": TEAM_ID_MAP[home],
+        "away_team": away,
+        "away_id": TEAM_ID_MAP[away],
+        "elo_home": elo_home,
+        "elo_away": elo_away,
+        "alpha": alpha,  # Dynamic assignment
+        "beta": beta,  # Dynamic assignment
+        "bookie_odds": bookie_odds,
+    }
+    return ctx

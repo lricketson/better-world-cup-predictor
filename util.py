@@ -150,118 +150,51 @@ def calculate_specific_q(
     return updated_q_matrix, updated_q_grid
 
 
-def apply_elo_hazards(
-    team_q_matrix: pd.DataFrame,
-    elo_home: float,
-    elo_away: float,
-    beta: float = 0.0005,
-):
-    df = team_q_matrix.copy()
+def neutralise_global_prior(global_q: pd.DataFrame):
+    """
+    Strips home field advantage from the global prior matrix by averaging out mirror-image 'H' and 'A' transition rates.
+    """
 
-    # extract starting attributes
-    df["start_zone"] = df["starting_state"].str[2]
-    df["start_poss"] = df["starting_state"].str[-1]
+    df = global_q.copy()
 
-    # extract finishing attributes
-    df["finish_poss"] = df["finishing_state"].str[-1]
+    def get_twin_state(state: str) -> str:
+        possession = state[-1]
+        if state.startswith("Goal"):
+            twin_state = "Goal_H" if possession == "A" else "Goal_A"
+            return twin_state
+        zone_number = state[2]
+        mirror_possession = "A" if possession == "H" else "H"
+        return f"Z:{zone_number}_P:{mirror_possession}"
 
-    # create a Boolean series of 'is this event a goal?'
-    is_goal = df["finishing_state"].str.startswith("Goal")
+    df["twin_start"] = df["starting_state"].apply(get_twin_state)
+    df["twin_finish"] = df["finishing_state"].apply(get_twin_state)
 
-    # df["finish_zone"] = df.loc[~is_goal, "finishing_state"].str[2]
+    twin_lookup = df[
+        ["starting_state", "finishing_state", "lambda_ij", "n_ij", "T_i"]
+    ].rename(columns={"lambda_ij": "twin_lambda", "n_ij": "twin_n", "T_i": "twin_T"})
 
-    df["finish_zone"] = df["finishing_state"].str[2]
-
-    active_diff = np.where(
-        df["start_poss"] == "H", elo_home - elo_away, elo_away - elo_home
+    merged = pd.merge(
+        df,
+        twin_lookup,
+        left_on=["twin_start", "twin_finish"],
+        right_on=["starting_state", "finishing_state"],
+        suffixes=("", "_drop"),
     )
 
-    # define tactically positive actions
-    is_progression = (
-        (~is_goal)  # not a goal
-        & (df["start_poss"] == df["finish_poss"])  # possession was kept
-        & (df["finish_zone"] > df["start_zone"])  # ball was advanced forward
+    merged["lambda_ij"] = (merged["lambda_ij"] + merged["twin_lambda"]) / 2.0
+    merged["n_ij"] = (merged["n_ij"] + merged["twin_n"]) / 2.0
+    merged["T_i"] = (merged["T_i"] + merged["twin_T"]) / 2.0
+
+    neutral_q = merged.drop(
+        columns=[
+            "twin_start",
+            "twin_finish",
+            "twin_lambda",
+            "twin_n",
+            "twin_T",
+            "starting_state_drop",
+            "finishing_state_drop",
+        ]
     )
 
-    is_scoring = (is_goal) & (
-        df["start_poss"] == df["finish_poss"]
-    )  # it was a goal, and the team that started with possession is the one that scored
-
-    is_positive_action = is_progression | is_scoring
-
-    modifier = np.where(
-        is_positive_action,
-        active_diff,
-        -active_diff,
-    )
-
-    df["match_lambda_ij"] = df["updated_lambda_ij"] * np.exp(beta * modifier)
-    final_q_matrix = df[["starting_state", "finishing_state", "match_lambda_ij"]].copy()
-
-    final_q_grid = final_q_matrix.pivot(
-        index="starting_state", columns="finishing_state", values="match_lambda_ij"
-    ).fillna(0)
-    return final_q_matrix, final_q_grid
-
-
-def create_final_matrix(
-    home_team: str,
-    home_id: int,
-    away_team: str,
-    away_id: int,
-    elo_home: float,
-    elo_away: float,
-    global_q: pd.DataFrame,
-    alpha: float,
-    beta: float,
-):
-
-    # 1. Fetch raw historical data (Raw Events)
-    full_home_df = standardise_possessions(create_full_team_df(home_team))
-    full_away_df = standardise_possessions(create_full_team_df(away_team))
-
-    # 2. Align the perspectives (Raw Events)
-    aligned_home_df = align_team_perspective(full_home_df, home_id, sim_role="H")
-    aligned_away_df = align_team_perspective(full_away_df, away_id, sim_role="A")
-
-    # 3. [THE FIX]: Aggregate the raw events into Transition Counts (n_ij) and Times (T_i)
-    # We can reuse our global function to do this calculation for specific teams!
-    home_counts, _ = calculate_global_q(aligned_home_df)
-    away_counts, _ = calculate_global_q(aligned_away_df)
-
-    # 4. Pass the AGGREGATED counts into the Bayesian update
-    home_q_matrix, _ = calculate_specific_q(global_q, alpha, home_counts)
-    away_q_matrix, _ = calculate_specific_q(global_q, alpha, away_counts)
-
-    # 5. The Slicing
-    home_attacking_rows = home_q_matrix[
-        home_q_matrix["starting_state"].str.endswith("H")
-    ]
-    away_attacking_rows = away_q_matrix[
-        away_q_matrix["starting_state"].str.endswith("A")
-    ]
-
-    combined_match_matrix = pd.concat([home_attacking_rows, away_attacking_rows])
-
-    # 6. Apply Elo Hazards
-    final_q_matrix, final_q_grid = apply_elo_hazards(
-        combined_match_matrix, elo_home, elo_away, beta
-    )
-
-    return final_q_grid
-
-
-if __name__ == "__main__":
-    # 1. Build the massive event ledger
-    master_df = create_master_df("data/world_cup_2026")
-
-    # 2. Only proceed to matrix calculation if data was successfully loaded
-    if not master_df.empty:
-        # 3. Calculate the dense Global Prior matrix
-        rates_df, q_grid = calculate_global_q(master_df)
-
-        print("\n[*] --- GLOBAL TRANSITION RATE MATRIX (Q) ---")
-        print(q_grid.head())
-
-        # save the matrix to CSV so i don't have to recalculate it every time
-        q_grid.to_csv("global_transition_matrix.csv")
+    return neutral_q
