@@ -2,6 +2,7 @@ from typing import Dict, Any, Tuple
 import numpy as np
 import pandas as pd
 import time
+import torch
 
 STATES = [
     "Z:0_P:H",
@@ -34,7 +35,8 @@ class LiveEventScraper:
         # real-time state trackers
         self.current_clock: float = 0.0  # elapsed match time in seconds
         self.last_event_time: float = 0.0  # timestamp of the previous event
-        self.scoreboard: list[int] = [0, 0]  # [home_goals, away_goals]
+
+        self.scoreboard = torch.zeros(2, dtype=torch.long, pin_memory=True)
 
         # initialise ball at home kickoff  (Z:2_P:H, which is Index 2)
         self.current_state_idx: int = STATE_TO_IDX["Z:2_P:H"]
@@ -42,7 +44,7 @@ class LiveEventScraper:
 
         # continuous-time maths ledgers (in RAM)
         # n_live is a 12x12 matrix tracking exact transition counts from state i to j
-        self.n_live = np.zeros((12, 12), dtype=np.float32)
+        self.n_live = torch.zeros((12, 12), dtype=torch.float32, pin_memory=True)
 
         # T_live is a 12-element vector tracking total cumulative seconds spent in state i
-        self.T_live = np.zeros(12, dtype=np.float32)
+        self.T_live = torch.zeros(12, dtype=torch.float32, pin_memory=True)
