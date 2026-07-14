@@ -3,6 +3,12 @@ import numpy as np
 import pandas as pd
 import time
 import torch
+from helpers import (
+    apply_stoppage_cap,
+    get_spatial_zone,
+    resolve_goal_state,
+    resolve_possession,
+)
 
 STATES = [
     "Z:0_P:H",
@@ -48,3 +54,46 @@ class LiveEventScraper:
 
         # T_live is a 12-element vector tracking total cumulative seconds spent in state i
         self.T_live = torch.zeros(12, dtype=torch.float32, pin_memory=True)
+
+    def process_event(self, event_packet: Dict[str, any]):
+        # skip non-touch events like cards
+        if not event_packet.get("isTouch", False):
+            return
+        event_time = event_packet["expandedMinute"] * 60 + event_packet["second"]
+        raw_delta = event_time - self.last_event_time
+        delta_t = apply_stoppage_cap(raw_delta)
+
+        is_goal = event_packet.get("isGoal", False) is True
+        is_own = event_packet.get("isOwnGoal", False) is True
+        is_home = event_packet["teamId"] == self.home_id
+
+        goal_state = resolve_goal_state(is_goal, is_own, is_home)
+
+        if goal_state:
+            finishing_goal_state = goal_state
+            # update pinned scoreboard tensor directly
+            if goal_state == "Goal_H":
+                self.scoreboard[0] += 1
+            else:
+                self.scoreboard[1] += 1
+
+        else:
+            # not a goal
+            end_x = event_packet.get("endX", event_packet["x"])
+            zone = get_spatial_zone(end_x)
+            outcome_val = event_packet.get("outcomeType", {}).get("value", 1)
+            possession = resolve_possession(
+                event_packet["teamId"], self.home_id, outcome_val
+            )
+
+            finishing_state_str = f"Z:{zone}_P:{possession}"
+
+        next_state_idx = STATE_TO_IDX[finishing_state_str]
+
+        self.n_live[self.current_state_idx, next_state_idx] += 1.0
+        self.T_live[self.current_state_idx] += delta_t
+
+        self.current_clock = event_time
+        self.last_event_time = event_time
+        self.current_state_idx = next_state_idx
+        self.current_state_str = finishing_state_str

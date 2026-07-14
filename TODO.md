@@ -14,3 +14,5 @@ i want to make calls to the oddsportal historical odds website to create a stati
 
 - set up backtesting to find out how much benefit (if any) the k-nn gives the overall model.
 - test both the CTMC and the k-NN individually and then together, to see the benefit
+
+- add in yellow/red cards
