@@ -1,4 +1,4 @@
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List
 import numpy as np
 import pandas as pd
 import time
@@ -56,6 +56,9 @@ class LiveEventScraper:
         self.T_live = torch.zeros(12, dtype=torch.float32, pin_memory=True)
 
     def process_event(self, event_packet: Dict[str, any]):
+        """
+        Takes in a single event and updates the scoreboard and the clock.
+        """
         # skip non-touch events like cards
         if not event_packet.get("isTouch", False):
             return
@@ -70,7 +73,7 @@ class LiveEventScraper:
         goal_state = resolve_goal_state(is_goal, is_own, is_home)
 
         if goal_state:
-            finishing_goal_state = goal_state
+            finishing_state_str = goal_state
             # update pinned scoreboard tensor directly
             if goal_state == "Goal_H":
                 self.scoreboard[0] += 1
@@ -97,3 +100,52 @@ class LiveEventScraper:
         self.last_event_time = event_time
         self.current_state_idx = next_state_idx
         self.current_state_str = finishing_state_str
+
+        return True
+
+    def ingest_stream_chunk(self, events: List[Dict[str, any]]) -> bool:
+        """
+        Takes in a list/chunk of incoming event packets. Returns True if at least one touch event updated the live ledger.
+        """
+        state_updated = False
+        for packet in events:
+            if self.process_event(packet):
+                state_updated = True
+        return state_updated
+
+    def export_engine_payload(self) -> Dict[str, any]:
+        """
+        Packages the active live state into a lightweight dictionary ready for the next stages. All tensors remain
+        in pinned CPU RAM ready for non-blocking GPU Direct Memory Access (DMA) transfer (.to(non_blocking=True)).
+        """
+        remaining_seconds = max(0.0, self.total_match_seconds - self.current_clock)
+        return {
+            "clock_seconds": self.current_clock,
+            "remaining_seconds": remaining_seconds,
+            "scoreboard": self.scoreboard,  # Pinned CPU Tensor (shape: [2])
+            "active_ball_state_idx": self.current_state_idx,
+            "n_live": self.n_live,  # Pinned CPU Tensor (shape: [12, 12])
+            "T_live": self.T_live,  # Pinned CPU Tensor (shape: [12])
+        }
+
+    def get_live_transition_rates(self, epsilon: float = 1e-6) -> torch.Tensor:
+        """
+        Helper: Computes live transition rates lambda_live = n_live / (T_live + epsilon).
+        """
+        return self.n_live / (self.T_live.unsqueeze(1) + epsilon)
+
+    def reset(self):
+        """
+        Wipes ledgers clean between fixtures or half-times without trigerring OS memory garbage collection.
+        Uses PyTorch in-place .zero_() to preserve physical pinned RAM addresses.
+        """
+        self.current_clock = 0.0
+        self.last_event_time = 0.0
+        self.current_state_idx = STATE_TO_IDX["Z:2_P:H"]
+        self.current_state_str = "Z:2_P:H"
+
+        # calling .zero_() instead of torch.zeros() keeps the direct memory "highway" to the GPU open instead
+        # of forcing PyTorch to ask the motherboard for a brand new physical memory block.
+        self.scoreboard.zero_()
+        self.n_live.zero_()
+        self.T_live.zero_()
