@@ -34,15 +34,20 @@ class LiveEventScraper:
     snapshots for the Tri-Modal Bayesian Decay engine.
     """
 
-    def __init__(self, home_team_id: int, away_team_id: int):
+    def __init__(
+        self, home_team_id: int, away_team_id: int, total_match_seconds: float = 5400.0
+    ):
         self.home_id = home_team_id
         self.away_id = away_team_id
+        self.total_match_seconds = total_match_seconds
 
         # real-time state trackers
         self.current_clock: float = 0.0  # elapsed match time in seconds
         self.last_event_time: float = 0.0  # timestamp of the previous event
 
-        self.scoreboard = torch.zeros(2, dtype=torch.long, pin_memory=True)
+        self.use_pinned = torch.cuda.is_available()
+
+        self.scoreboard = torch.zeros(2, dtype=torch.long, pin_memory=self.use_pinned)
 
         # initialise ball at home kickoff  (Z:2_P:H, which is Index 2)
         self.current_state_idx: int = STATE_TO_IDX["Z:2_P:H"]
@@ -50,10 +55,12 @@ class LiveEventScraper:
 
         # continuous-time maths ledgers (in RAM)
         # n_live is a 12x12 matrix tracking exact transition counts from state i to j
-        self.n_live = torch.zeros((12, 12), dtype=torch.float32, pin_memory=True)
+        self.n_live = torch.zeros(
+            (12, 12), dtype=torch.float32, pin_memory=self.use_pinned
+        )
 
         # T_live is a 12-element vector tracking total cumulative seconds spent in state i
-        self.T_live = torch.zeros(12, dtype=torch.float32, pin_memory=True)
+        self.T_live = torch.zeros(12, dtype=torch.float32, pin_memory=self.use_pinned)
 
     def process_event(self, event_packet: Dict[str, any]):
         """
@@ -119,7 +126,7 @@ class LiveEventScraper:
         in pinned CPU RAM ready for non-blocking GPU Direct Memory Access (DMA) transfer (.to(non_blocking=True)).
         """
         remaining_seconds = max(0.0, self.total_match_seconds - self.current_clock)
-        return {
+        payload = {
             "clock_seconds": self.current_clock,
             "remaining_seconds": remaining_seconds,
             "scoreboard": self.scoreboard,  # Pinned CPU Tensor (shape: [2])
@@ -127,6 +134,7 @@ class LiveEventScraper:
             "n_live": self.n_live,  # Pinned CPU Tensor (shape: [12, 12])
             "T_live": self.T_live,  # Pinned CPU Tensor (shape: [12])
         }
+        return payload
 
     def get_live_transition_rates(self, epsilon: float = 1e-6) -> torch.Tensor:
         """

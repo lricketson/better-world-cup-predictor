@@ -133,13 +133,12 @@ def parse_match_to_dataframe(filepath):
     df.loc[is_goal & ~is_home & is_own_goal, "finishing_state"] = "Goal_H"
 
     # find time spent in the starting state (the difference between this event and the next)
-    df["time_spent_seconds"] = df.index.to_series().diff().shift(-1)
+    time_deltas = df.index.to_series().diff().shift(-1)
 
     # fill the very last event of the match (which has no next event) with the standard 2 seconds
-    df["time_spent_seconds"] = df["time_spent_seconds"].fillna(2.0)
-
-    # cap stoppages at 15 seconds to preserve tactical reality
-    df["time_spent_seconds"] = df.apply(apply_stoppage_cap)
+    time_deltas = time_deltas.fillna(2.0)
+    time_deltas = np.where(time_deltas < 0, 2.0, time_deltas)
+    df["time_spent_seconds"] = np.where(time_deltas > 15.0, 3.0, time_deltas)
 
     cols_to_keep = [
         "eventId",
