@@ -95,7 +95,7 @@ class TacticalVectoriser:
         A helper function to sum up the number of transitions where finishing zone index > starting
         zone index, and possession is kept.
         """
-        progressions = torch.tensor(0, device=self.device)
+        progressions = torch.tensor(0.0, device=self.device)
         for i in range(len(team_indices)):
             start_idx = team_indices[i]
             for j in range(i + 1, len(team_indices)):
