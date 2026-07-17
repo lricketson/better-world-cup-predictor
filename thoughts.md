@@ -7,3 +7,5 @@ do teams' historical performance data take into account the calibre of the team 
 - current rendition assumes vig is distributed uniformly when in reality it is distributed more towards the underdogs and draws since favourites already have odds so low that people won't be tempted to bet on them
 
 - i was getting very different results when I ran Home: Norway vs Away: England compared to Home: England vs Away: Norway. This implies that the global Q matrix has home advantage baked into it somehow. This initially seems weird because 90% of the matches that went into the global Q matrix were played by 2 neutral teams (not Canada/USA/Mexico). But the reason for it is that due to administrative seeding, Pot 1 (the best pot) teams ended up in the 'Home' slot more often (2/3 times for their group games) which therefore inflated the transition rates for Home teams.
+
+- we will turn the M>=10,000 historical match database into a vectorised form offline.
