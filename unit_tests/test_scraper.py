@@ -1,9 +1,7 @@
 import unittest
 import torch
-import numpy as np
-from typing import Dict, Any
-
-from live_scraper import LiveEventScraper, STATE_TO_IDX
+from live_scraper import LiveEventScraper
+from constants import STATE_TO_IDX
 from helpers import apply_stoppage_cap, resolve_goal_state, get_spatial_zone
 
 

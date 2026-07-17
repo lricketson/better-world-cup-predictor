@@ -1,6 +1,7 @@
 import unittest
 import torch
-from live_scraper import LiveEventScraper, STATE_TO_IDX
+from live_scraper import LiveEventScraper
+from constants import STATE_TO_IDX
 from vectoriser import TacticalVectoriser
 
 

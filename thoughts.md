@@ -9,3 +9,6 @@ do teams' historical performance data take into account the calibre of the team 
 - i was getting very different results when I ran Home: Norway vs Away: England compared to Home: England vs Away: Norway. This implies that the global Q matrix has home advantage baked into it somehow. This initially seems weird because 90% of the matches that went into the global Q matrix were played by 2 neutral teams (not Canada/USA/Mexico). But the reason for it is that due to administrative seeding, Pot 1 (the best pot) teams ended up in the 'Home' slot more often (2/3 times for their group games) which therefore inflated the transition rates for Home teams.
 
 - we will turn the M>=10,000 historical match database into a vectorised form offline.
+
+- i first used degree 2 Bernstein polynomials for dictating the weights of the different data, but i found
+  exponential decay is a better fit since we want live match data to make a faster, more powerful impact.

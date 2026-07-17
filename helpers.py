@@ -82,7 +82,7 @@ def parse_match_to_dataframe(filepath):
     df = df.sort_index()
 
     def calculate_state(row, is_start_coordinate=True):
-        possession = "Home" if row["teamId"] == home_id else "Away"
+        possession = "H" if row["teamId"] == home_id else "A"
 
         # if we're looking at event end coordinates:
         if not is_start_coordinate:
@@ -91,7 +91,7 @@ def parse_match_to_dataframe(filepath):
             # possession, so we give possession to the other team.
             outcome_val = row.get("outcomeType", {}).get("value")
             if outcome_val == 0:
-                possession = "Away" if possession == "Home" else "Home"
+                possession = "A" if possession == "H" else "H"
 
         # determine which coordinate to use for the event
         x_val = row["x"] if is_start_coordinate else row.get("endX", row["x"])

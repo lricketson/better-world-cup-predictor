@@ -9,23 +9,7 @@ from helpers import (
     resolve_goal_state,
     resolve_possession,
 )
-
-STATES = [
-    "Z:0_P:H",
-    "Z:1_P:H",
-    "Z:2_P:H",
-    "Z:3_P:H",
-    "Z:4_P:H",
-    "Z:0_P:A",
-    "Z:1_P:A",
-    "Z:2_P:A",
-    "Z:3_P:A",
-    "Z:4_P:A",
-    "Goal_H",
-    "Goal_A",
-]
-
-STATE_TO_IDX = {state: i for i, state in enumerate(STATES)}
+from constants import STATE_TO_IDX
 
 
 class LiveEventScraper:

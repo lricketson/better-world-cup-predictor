@@ -1,10 +1,9 @@
 import torch
 from typing import Dict, Any, List
+from constants import HOME_ATTACK_IDX, AWAY_ATTACK_IDX
 
 HOME_STATES_IDX = [0, 1, 2, 3, 4]
 AWAY_STATES_IDX = [5, 6, 7, 8, 9]
-HOME_ATTACK_IDX = [3, 4]  # Z:3_P:H and Z:4_P:H
-AWAY_ATTACK_IDX = [8, 9]  # Z:3_P:A and Z:4_P:A
 
 
 class TacticalVectoriser:
