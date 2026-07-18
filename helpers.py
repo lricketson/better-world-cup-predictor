@@ -166,7 +166,9 @@ def parse_match_to_dataframe(filepath):
 
 
 def safe_parse(filepath):
-    """Wrapper to catch corrupted files without crashing the whole script."""
+    """
+    Wrapper to catch corrupted files without crashing the whole script.
+    """
     try:
         return parse_match_to_dataframe(filepath)
     except Exception as e:

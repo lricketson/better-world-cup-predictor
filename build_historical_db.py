@@ -144,8 +144,8 @@ def compile_historical_database(
                 n_mat, T_vec = build_future_ledgers(df_future)
 
                 staging_vectors[minute].append(raw_vec)
-                staging_n_future[minute].append[n_mat]
-                staging_T_future[minute].append[T_vec]
+                staging_n_future[minute].append(n_mat)
+                staging_T_future[minute].append(T_vec)
 
             valid_matches_processed += 1
             print(

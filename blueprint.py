@@ -3,13 +3,12 @@ import pandas as pd
 import numpy as np
 from constants import BEST_ALPHA, BEST_BETA
 from util import (
-    standardise_possessions,
-    align_team_perspective,
     calculate_global_q,
     calculate_specific_q,
     create_full_team_df,
     neutralise_global_prior,
 )
+from helpers import standardise_possessions, align_team_perspective
 
 
 class FeatureStrategy(ABC):
@@ -63,8 +62,8 @@ class EloModifier(FeatureStrategy):
 
 class HostAdvantageModifier(FeatureStrategy):
     """
-    Applies a clean, mathematically rigorous Home Field Advantage (HFA) boost to tournament host nations playing on home
-    soil, operating on top of a neutral prior.
+    Applies a clean, mathematically rigorous Home Field Advantage (HFA) boost to tournament
+    host nations playing on home soil, operating on top of a neutral prior.
     """
 
     def apply(self, matrix: pd.DataFrame, ctx: dict) -> pd.DataFrame:
@@ -105,7 +104,6 @@ class MatrixPipeline:
         home_team, home_id = ctx["home_team"], ctx["home_id"]
         away_team, away_id = ctx["away_team"], ctx["away_id"]
 
-        # FIX: Directly fetching from context dictionary without constant fallback
         alpha = ctx["alpha"]
 
         # Symmetrize prior to strip out administrative seeding bias
