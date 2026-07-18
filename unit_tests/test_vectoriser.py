@@ -12,14 +12,14 @@ class TestTacticalvectoriser(unittest.TestCase):
 
     def test_output_shape_and_type(self):
         """
-        Verifies that the vectoriser returns a 1D PyTorch Tensor of exact length 4,
+        Verifies that the vectoriser returns a 1D PyTorch Tensor of exact length 5,
         residing on the correct compute device.
         """
         payload = self.scraper.export_engine_payload()
         vector = self.vectoriser.vectorise(payload)
 
         self.assertIsInstance(vector, torch.Tensor)
-        self.assertEqual(vector.shape, (4,))
+        self.assertEqual(vector.shape, (5,))
         self.assertEqual(vector.dtype, torch.float32)
 
     def test_neutral_prior_fallback(self):

@@ -18,7 +18,7 @@ class TacticalKNNIndexer:
     ):
         """
         historical_database: a dictionary mapping minute timestamps (which are the keys, e.g.
-        10, 20, 30...) to a 2D PyTorch tensor of shape (M=num_matches, 4) containing normalised
+        10, 20, 30...) to a 2D PyTorch tensor of shape (M=num_matches, 5) containing normalised
         historical vectors.
         n_future_database: FILL ME IN
         T_future_database: FILL ME IN
@@ -29,7 +29,7 @@ class TacticalKNNIndexer:
         self.k = k_neighbours
 
         # if no historical dbs passed, initialise an empty registry
-        self.db = historical_database or {}  # shape per minute: (M, 4)
+        self.db = historical_database or {}  # shape per minute: (M, 5)
         self.n_future_db = n_future_database or {}  # shape per minute: (M, 12, 12)
         self.T_future_db = T_future_database or {}  # shape per minute: (M, 12)
 
@@ -59,7 +59,7 @@ class TacticalKNNIndexer:
         self, live_vector: torch.Tensor, clock_seconds: float
     ) -> Tuple[torch.Tensor, torch.Tensor, int]:
         """
-        Ingests the normalised (4,) live vector from the TacticalVectoriser class and the match clock
+        Ingests the normalised (5,) live vector from the TacticalVectoriser class and the match clock
         timestamp t. Returns:
             top_k_distances: Shape (k,), containing the distances to the k most similar historical fixtures.
             top_k_indices: Shape (k,) containing the row indices of the k most similar historical fixtures.
@@ -80,14 +80,14 @@ class TacticalKNNIndexer:
 
         historical_matrix = self.db[
             minute_bucket
-        ]  # shape: (M, 4) [so M rows and 4 columns]
+        ]  # shape: (M, 5) [so M rows and 5 columns]
 
         # make sure k isn't greater than the number of historical matches
         num_historical_matches = historical_matrix.shape[0]
         active_k = min(self.k, num_historical_matches)
 
-        # reshape live vector from (4,) to (1, 4) to satisfy torch.cdist matrix dimensions
-        # .unsqueeze(0) adds a dimension at index 0, so (4,) becomes (1, 4)
+        # reshape live vector from (5,) to (1, 5) to satisfy torch.cdist matrix dimensions
+        # .unsqueeze(0) adds a dimension at index 0, so (5,) becomes (1, 5)
         live_query = live_vector.to(device=self.device, non_blocking=True).unsqueeze(0)
 
         # native PyTorch Euclidean distance calculation

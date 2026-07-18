@@ -38,18 +38,16 @@ class BayesianDecayEngine:
 
     def compute_decay_weights(self, clock_seconds: float) -> Tuple[float, float, float]:
         """
-        Computes degree-2 Bernstein polynomial basis weights for time progression w in [0,1], where w
+        Computes exponential decay weights for time progression w in [0,1], where w
         is t/5400 (the fraction of the match that has so far been played).
-        Guarantees alpha + beta + gamma = 1.0 at all timestamps.
+        Guarantees the sum of all weights is 1.0 at all timestamps.
         """
         t = min(self.total_seconds, max(0.0, float(clock_seconds)))
 
         # w_pre is a function of t: e^(-l_d * t)
         w_pre = math.exp(-self.lambda_decay * t)
-
         progress_ratio = t / self.total_seconds
         w_live = (1.0 - w_pre) * (progress_ratio**1.5)
-
         w_knn = 1.0 - w_live - w_pre
 
         return w_pre, w_knn, w_live
@@ -64,7 +62,7 @@ class BayesianDecayEngine:
     ) -> torch.Tensor:
         """
         Executes row-wise Tri-Modal Bayesian blending and enforces CTMC rows-sum-to-zero validity.
-        lambda_active(t) = w_pre * lambda_pre + w_KNN * lambda_KNN + w_live * lambda_live
+        lambda_active(t) = w_pre * lambda_pre + w_KNN * lambda_KNN + w_live * lambda_live.
         Also performs row-wise dynamic reallocation for unvisited states.
         """
 
