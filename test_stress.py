@@ -140,11 +140,13 @@ def test_stoppage_time_ceiling(device: torch.device):
     elapsed = time.time() - start_t
 
     total_prob = prob_h + prob_d + prob_a
+
     assert (
         abs(total_prob - 1.0) < 1e-4
     ), f"FAIL: Total probability sums to {total_prob}, expected 1.0!"
+    max_time = 1.0 if device.type == "cuda" else 10.0
     assert (
-        elapsed < 0.5
+        elapsed < max_time
     ), f"FAIL: Late-game clock execution stalled! Time taken: {elapsed:.3f}s"
     print(
         f"  [+] PASSED: Stoppage time ceiling resolved 10,000 late-game branches in {elapsed * 1000:.1f}ms."

@@ -1,6 +1,6 @@
 import pandas as pd
 from blueprint import MatrixPipeline, EloModifier
-from constants import TEAM_ID_MAP, BEST_ALPHA, BEST_BETA
+from constants import TEAM_ID_MAP, BEST_ALPHA, BEST_BETA, WC_FINAL_LIVE_URL
 from helpers import country_to_elo, safe_scrape_elo
 from bayesian_decay import BayesianDecayEngine
 from live_scraper import LiveEventScraper
@@ -155,10 +155,6 @@ async def main_async():
     prior_tensor = torch.tensor(final_q_grid.values, dtype=torch.float32, device=device)
     bayesian_decay_eng = BayesianDecayEngine(historical_baseline=prior_tensor)
 
-    # instantiate knn indexer and load compiled database slices
-    indexer = TacticalKNNIndexer(
-        k_neighbours=15
-    )  ############## 15 is PLACEHOLDER, i want to dynamically calculate this based on historical db size
     slice_files = glob.glob("./compiled_db/*.pt")
 
     if not slice_files:
@@ -203,7 +199,7 @@ async def main_async():
 
     handler = LiveFeedHandler(
         scraper=scraper,
-        websocket_url=None,  # FILL THIS IN WHEN AVAILABLE. LOOK MORE INTO IT
+        websocket_url=WC_FINAL_LIVE_URL,
         fallback_json_path="./live_match_feed.json",
     )
 

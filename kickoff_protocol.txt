@@ -8,9 +8,20 @@ In Terminal 1:
 
   Launch the Opta scraper like so:
 
+  python .\live_endpoint_sniper.py https://www.whoscored.com/matches/XXXXXX/live
+
+  ***Leave the chrome window open because that's the Playwright agent doing its thing***
+
+
+
+
+ALTERNATIVELY:
+
+  Launch the Opta scraper like so:
+
   python live_feed_scraper.py https://www.whoscored.com/matches/XXXXXX/live
 
-  Leave the chrome window open because that's the Playwright agent doing its thing
+  ***Leave the chrome window open because that's the Playwright agent doing its thing***
 
 
 
