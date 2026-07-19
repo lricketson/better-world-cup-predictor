@@ -179,10 +179,7 @@ def safe_parse(filepath):
 def safe_scrape_elo():
     url = "https://www.eloratings.net/World.tsv"
     df = pd.read_csv(url, sep="\t", header=None)
-
-    # THE FIX: Map to 2 (Code) and 3 (Rating)
     df.rename(columns={0: "rank", 2: "country_code", 3: "rating"}, inplace=True)
-
     return df
 
 
@@ -276,7 +273,7 @@ def align_team_perspective(team_df: pd.DataFrame, team_id: int, sim_role: str):
     return df
 
 
-def standardise_possessions(df):
+def standardise_possessions(df: pd.DataFrame) -> pd.DataFrame:
     """Forces all 'Home' and 'Away' strings to 'H' and 'A' across the dataframe."""
     df_clean = df.copy()
     df_clean["starting_state"] = (
@@ -288,7 +285,7 @@ def standardise_possessions(df):
     return df_clean
 
 
-def probability_to_odds(probability: float, vig_margin: float = 0.0):
+def probability_to_odds(probability: float, vig_margin: float = 0.0) -> float:
     """
     Converts a probability to its corresponding odds metric, optionally baking in
     a bookmaker's vig.

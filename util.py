@@ -148,7 +148,8 @@ def calculate_specific_q(
 
 def neutralise_global_prior(global_q: pd.DataFrame):
     """
-    Strips home field advantage from the global prior matrix by averaging out mirror-image 'H' and 'A' transition rates.
+    Strips home field advantage from the global prior matrix by averaging out mirror-image
+    'H' and 'A' transition rates.
     """
 
     df = global_q.copy()

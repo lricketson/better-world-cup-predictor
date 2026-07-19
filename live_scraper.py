@@ -93,7 +93,8 @@ class LiveEventScraper:
 
     def ingest_stream_chunk(self, events: List[Dict[str, any]]) -> bool:
         """
-        Takes in a list/chunk of incoming event packets. Returns True if at least one touch event updated the live ledger.
+        Takes in a list/chunk of incoming event packets. Returns True if at least one
+        touch event updated the live ledger.
         """
         state_updated = False
         for packet in events:
@@ -103,8 +104,9 @@ class LiveEventScraper:
 
     def export_engine_payload(self) -> Dict[str, any]:
         """
-        Packages the active live state into a lightweight dictionary ready for the next stages. All tensors remain
-        in pinned CPU RAM ready for non-blocking GPU Direct Memory Access (DMA) transfer (.to(non_blocking=True)).
+        Packages the active live state into a lightweight dictionary ready for the next stages. 
+        All tensors remain in pinned CPU RAM ready for non-blocking GPU Direct Memory Access (DMA)
+        transfer (.to(non_blocking=True)).
         """
         remaining_seconds = max(0.0, self.total_match_seconds - self.current_clock)
         payload = {
@@ -125,7 +127,7 @@ class LiveEventScraper:
 
     def reset(self):
         """
-        Wipes ledgers clean between fixtures or half-times without trigerring OS memory garbage collection.
+        Wipes ledgers clean between fixtures or half-times without triggering OS memory garbage collection.
         Uses PyTorch in-place .zero_() to preserve physical pinned RAM addresses.
         """
         self.current_clock = 0.0

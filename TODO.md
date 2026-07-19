@@ -16,3 +16,6 @@ i want to make calls to the oddsportal historical odds website to create a stati
 - test both the CTMC and the k-NN individually and then together, to see the benefit
 
 - add in yellow/red cards
+
+- expand database with 2022 wc, the rest of this wc, copa america/euros
+  -look into how to get the Opta WC final websocket url

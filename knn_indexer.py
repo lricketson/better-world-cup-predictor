@@ -63,7 +63,7 @@ class TacticalKNNIndexer:
         timestamp t. Returns:
             top_k_distances: Shape (k,), containing the distances to the k most similar historical fixtures.
             top_k_indices: Shape (k,) containing the row indices of the k most similar historical fixtures.
-            minute_bucket: the minute bucket.
+            minute_bucket: the current minute of the match.
         """
 
         # map current match clock to the nearest integer minute bucket

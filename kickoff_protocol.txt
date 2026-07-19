@@ -1,0 +1,24 @@
+not sure if this is the right url to use. might need to get a new one from once whoscored
+starts tracking things closer to kickoff
+
+https://www.whoscored.com/matches/2007644/preview/international-fifa-world-cup-2026-spain-argentina
+
+
+In Terminal 1:
+
+  Launch the Opta scraper like so:
+
+  python live_feed_scraper.py https://www.whoscored.com/matches/XXXXXX/live
+
+  Leave the chrome window open because that's the Playwright agent doing its thing
+
+
+
+In Terminal 2:
+
+
+Once Terminal 1 prints [+] Live Opta Sync: ... total events logged:
+
+Run the engine like so:
+
+  python main_live.py
